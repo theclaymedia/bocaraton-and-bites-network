@@ -384,15 +384,34 @@ a{color:inherit}
 /* calendar */
 .cal__top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
 .cal__mo{font-family:var(--f-display);font-variation-settings:"wdth" 108,"wght" 620;font-size:16px;text-transform:uppercase;letter-spacing:-.01em}
-.cal__nav{font-family:var(--f-mono);font-size:14px;color:var(--sand-dim)}
+.cal__btn{
+  background:none;border:1px solid var(--rule);color:var(--ink);cursor:pointer;
+  width:26px;height:26px;font-size:14px;line-height:1;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .2s ease,color .2s ease,border-color .2s ease;
+}
+.cal__btn:hover{background:var(--deep);color:var(--paper);border-color:var(--deep)}
 .cal__grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
 .cal__dow{font-family:var(--f-mono);font-size:8.5px;letter-spacing:.06em;color:var(--sand-dim);padding:4px 0}
 .cal__day{
-  font-family:var(--f-mono);font-size:11px;padding:6px 0;color:var(--ink);border:1px solid transparent;
+  position:relative;font-family:var(--f-mono);font-size:11px;padding:7px 0;color:var(--ink);
+  border:1px solid transparent;background:none;cursor:pointer;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
-.cal__day--muted{color:var(--rule)}
-.cal__day--ev{background:var(--signal);color:var(--deep);font-weight:500}
+.cal__day:hover{background:rgba(185,168,138,.28)}
+.cal__day--muted{color:transparent;cursor:default;pointer-events:none}
+.cal__day--ev::after{content:"";position:absolute;left:50%;bottom:3px;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--signal)}
 .cal__day--today{border-color:var(--deep);font-weight:500}
+.cal__day--sel{background:var(--signal);color:var(--deep);font-weight:500;border-color:var(--signal)}
+.cal__day--sel::after{background:var(--deep)}
+.cal__detail{margin-top:12px;padding-top:12px;border-top:1px solid var(--rule-2)}
+.cal__detail h5{font-family:var(--f-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--sand-dim);margin:0 0 9px}
+.cal__ev{margin:0 0 9px;padding-left:13px;position:relative}
+.cal__ev:last-child{margin-bottom:0}
+.cal__ev::before{content:"";position:absolute;left:0;top:6px;width:5px;height:5px;background:var(--signal);border-radius:50%}
+.cal__ev b{font-family:var(--f-display);font-variation-settings:"wdth" 104,"wght" 600;font-size:14px;text-transform:uppercase;letter-spacing:-.01em;display:block;line-height:1.1}
+.cal__ev span{font-family:var(--f-mono);font-size:10px;letter-spacing:.04em;color:var(--sand-dim);text-transform:uppercase}
+.cal__none{font-size:13.5px;color:var(--sand-dim);margin:0;font-style:italic}
 
 /* events list */
 .evrow{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--rule-2);text-decoration:none;color:inherit}
@@ -978,18 +997,12 @@ a{color:inherit}
         <p class="side__modhead">Events Calendar</p>
         <div class="side__modbody">
           <div class="cal__top">
-            <span class="cal__mo">July 2026</span>
-            <span class="cal__nav" aria-hidden="true">&#8249; &#8250;</span>
+            <button class="cal__btn" id="calPrev" type="button" aria-label="Previous month">&#8249;</button>
+            <span class="cal__mo" id="calMonth" aria-live="polite">July 2026</span>
+            <button class="cal__btn" id="calNext" type="button" aria-label="Next month">&#8250;</button>
           </div>
-          <div class="cal__grid">
-            <span class="cal__dow">Su</span><span class="cal__dow">Mo</span><span class="cal__dow">Tu</span><span class="cal__dow">We</span><span class="cal__dow">Th</span><span class="cal__dow">Fr</span><span class="cal__dow">Sa</span>
-            <span class="cal__day cal__day--muted"></span><span class="cal__day cal__day--muted"></span><span class="cal__day cal__day--muted"></span>
-            <span class="cal__day">1</span><span class="cal__day">2</span><span class="cal__day">3</span><span class="cal__day">4</span>
-            <span class="cal__day">5</span><span class="cal__day">6</span><span class="cal__day">7</span><span class="cal__day">8</span><span class="cal__day">9</span><span class="cal__day">10</span><span class="cal__day cal__day--ev">11</span>
-            <span class="cal__day">12</span><span class="cal__day">13</span><span class="cal__day">14</span><span class="cal__day">15</span><span class="cal__day">16</span><span class="cal__day">17</span><span class="cal__day">18</span>
-            <span class="cal__day">19</span><span class="cal__day">20</span><span class="cal__day cal__day--ev">21</span><span class="cal__day">22</span><span class="cal__day">23</span><span class="cal__day">24</span><span class="cal__day">25</span>
-            <span class="cal__day">26</span><span class="cal__day">27</span><span class="cal__day">28</span><span class="cal__day">29</span><span class="cal__day">30</span><span class="cal__day cal__day--today">31</span>
-          </div>
+          <div class="cal__grid" id="calGrid" role="grid" aria-label="Events calendar"></div>
+          <div class="cal__detail" id="calDetail"></div>
         </div>
       </div>
 
@@ -1193,6 +1206,95 @@ a{color:inherit}
 </footer>
 
 <script>
+/* interactive events calendar */
+(function(){
+  var grid = document.getElementById('calGrid');
+  var moEl = document.getElementById('calMonth');
+  var detail = document.getElementById('calDetail');
+  var prev = document.getElementById('calPrev');
+  var next = document.getElementById('calNext');
+  if (!grid || !moEl || !detail || !prev || !next) return;
+
+  var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var DOW = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+  var DOWFULL = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  /* one-off events, keyed 'YYYY-M-D' (month 1-12) */
+  var ONE = {
+    '2026-7-11':  [{t:'Boca Burger Battle', m:'Sanborn Square Park · 21+ · from $65'}],
+    '2026-11-21': [{t:'Wine & Food Festival', m:'Sanborn Square Park · 21+ · from $65'}],
+    '2027-4-24':  [{t:'Tacos, Wings & Desserts Battle', m:'Sanborn Square Park · 21+'}]
+  };
+  /* recurring weekly events so every month stays lively */
+  function recurring(wd, nth){
+    var out = [];
+    if (wd === 4){ /* Thursday */
+      if (nth === 1) out.push({t:'Night Market', m:'Sanborn Square · Free · 6–10 PM'});
+      out.push({t:'Loving Bingo at The Vine', m:'The Vine · Doors 6:00 PM'});
+    }
+    if (wd === 6){ /* Saturday */
+      out.push({t:'Yoga in the Park', m:'Sanborn Square · 9:00 AM · Free'});
+    }
+    return out;
+  }
+  function eventsFor(y, m, d){
+    var wd = new Date(y, m-1, d).getDay();
+    var nth = Math.floor((d-1)/7) + 1;
+    var list = recurring(wd, nth);
+    var one = ONE[y+'-'+m+'-'+d];
+    return one ? one.concat(list) : list;
+  }
+
+  var now = new Date();
+  var tY = now.getFullYear(), tM = now.getMonth()+1, tD = now.getDate();
+  var viewY = tY, viewM = tM;
+  var selY = tY, selM = tM, selD = tD;
+
+  function renderDetail(){
+    if (viewY !== selY || viewM !== selM){
+      detail.innerHTML = '<p class="cal__none">Select a date to see events.</p>';
+      return;
+    }
+    var evs = eventsFor(selY, selM, selD);
+    var wd = new Date(selY, selM-1, selD).getDay();
+    var html = '<h5>' + DOWFULL[wd].toUpperCase() + ', ' + MONTHS[selM-1].slice(0,3).toUpperCase() + ' ' + selD + '</h5>';
+    if (!evs.length){
+      html += '<p class="cal__none">No events scheduled.</p>';
+    } else {
+      evs.forEach(function(e){ html += '<p class="cal__ev"><b>' + e.t + '</b><span>' + e.m + '</span></p>'; });
+    }
+    detail.innerHTML = html;
+  }
+  function render(){
+    moEl.textContent = MONTHS[viewM-1] + ' ' + viewY;
+    var first = new Date(viewY, viewM-1, 1).getDay();
+    var days = new Date(viewY, viewM, 0).getDate();
+    var html = '';
+    for (var i=0;i<7;i++) html += '<span class="cal__dow">' + DOW[i] + '</span>';
+    for (var b=0;b<first;b++) html += '<span class="cal__day cal__day--muted"></span>';
+    for (var d=1;d<=days;d++){
+      var cls = 'cal__day';
+      if (eventsFor(viewY, viewM, d).length) cls += ' cal__day--ev';
+      if (viewY===tY && viewM===tM && d===tD) cls += ' cal__day--today';
+      if (viewY===selY && viewM===selM && d===selD) cls += ' cal__day--sel';
+      html += '<button type="button" class="' + cls + '" data-d="' + d + '" aria-label="' + MONTHS[viewM-1] + ' ' + d + '">' + d + '</button>';
+    }
+    grid.innerHTML = html;
+    renderDetail();
+  }
+
+  grid.addEventListener('click', function(e){
+    var btn = e.target.closest('.cal__day');
+    if (!btn || btn.classList.contains('cal__day--muted')) return;
+    selY = viewY; selM = viewM; selD = parseInt(btn.getAttribute('data-d'), 10);
+    render();
+  });
+  prev.addEventListener('click', function(){ if(--viewM < 1){ viewM=12; viewY--; } render(); });
+  next.addEventListener('click', function(){ if(++viewM > 12){ viewM=1; viewY++; } render(); });
+
+  render();
+})();
+
 /* mobile category menu */
 (function(){
   var nav = document.getElementById('pnav');
